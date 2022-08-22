@@ -1,23 +1,37 @@
 #include <Arduino.h>
-#include "soc/soc.h"
-#include "soc/spi_reg.h"
 
 #if CONFIG_IDF_TARGET_ESP32
   #include "esp32/rom/spi_flash.h"
+  #include "soc/spi_reg.h"
 #elif CONFIG_IDF_TARGET_ESP32S2  // ESP32-S2
   #include "esp32s2/rom/spi_flash.h"
+  #include "soc/spi_reg.h"
 #elif CONFIG_IDF_TARGET_ESP32S3  // ESP32-S3
   #include "esp32s3/rom/spi_flash.h"
+  #include "soc/spi_reg.h"
 #elif CONFIG_IDF_TARGET_ESP32C3  // ESP32-C3
   #include "esp32c3/rom/spi_flash.h"
+  #include "soc/spi_reg.h"
 #endif
 
-#ifndef REG_SPI_BASE
-#define REG_SPI_BASE(i)     (DR_REG_SPI1_BASE + (((i)>1) ? (((i)* 0x1000) + 0x20000) : (((~(i)) & 1)* 0x1000 )))
-#endif
+
+#if CONFIG_IDF_TARGET_ESP32S3
+  #ifndef REG_SPI_BASE
+  #define REG_SPI_BASE(i)     (DR_REG_SPI1_BASE + (((i)>1) ? (((i)* 0x1000) + 0x20000) : (((~(i)) & 1)* 0x1000 )))
+  #undef PERIPHS_SPI_FLASH_CTRL
+  #define PERIPHS_SPI_FLASH_CTRL                SPI_CTRL_REG(0)
+  #endif // REG_SPI_BASE
+#elif CONFIG_IDF_TARGET_ESP32C3
+  #ifndef REG_SPI_BASE
+  #define REG_SPI_BASE(i)     (DR_REG_SPI1_BASE + (((i)>1) ? (((i)* 0x1000) + 0x20000) : (((~(i)) & 1)* 0x1000 )))
+  #undef PERIPHS_SPI_FLASH_CTRL
+  #define PERIPHS_SPI_FLASH_CTRL                SPI_CTRL_REG(0)
+  #endif // REG_SPI_BASE
+#endif // TARGET
+
 
 String ESP_getFlashChipMode(void) {
-const uint32_t spi_ctrl = REG_READ(SPI_CTRL_REG(0));
+const uint32_t spi_ctrl = REG_READ(PERIPHS_SPI_FLASH_CTRL);
 /* Not all of the following constants are already defined in older versions of spi_reg.h, so do it manually for now*/
 if (spi_ctrl & BIT(24)) { //SPI_FREAD_QIO
     return F("QIO");
