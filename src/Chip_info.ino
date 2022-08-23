@@ -150,7 +150,7 @@ typedef struct {
 #endif  // CONFIG_IDF_TARGET_ESP32S2
     return F("ESP32-S2");
   }
-  else if (4 == chip_model) {  // ESP32-S3
+  else if (9 == chip_model) {  // ESP32-S3
     return F("ESP32-S3");                                  // Max 240MHz, Dual core, QFN 7*7, ESP32-S3-WROOM-1, ESP32-S3-DevKitC-1
   }
   else if (5 == chip_model) {  // ESP32-C3
