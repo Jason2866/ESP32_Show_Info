@@ -18,6 +18,18 @@
   #endif // REG_SPI_BASE
 #endif // TARGET
 
+uint32_t ESP_getFlashChipId(void)
+{
+  uint32_t id = g_rom_flashchip.device_id;
+  id = ((id & 0xff) << 16) | ((id >> 16) & 0xff) | (id & 0xff00);
+  return id;
+}
+
+uint32_t ESP_getFlashChipRealSize(void)
+{
+  uint32_t id = (ESP_getFlashChipId() >> 16) & 0xFF;
+  return 2 << (id - 1);
+}
 
 String ESP_getFlashChipMode(void) {
 #if CONFIG_IDF_TARGET_ESP32S2
@@ -42,17 +54,20 @@ if (spi_ctrl & BIT(24)) { //SPI_FREAD_QIO
 return F("DOUT");
 }
 
-uint32_t ESP_getFlashChipId(void)
+uint32_t ESP_getFlashChipSpeed(void)
 {
-  uint32_t id = g_rom_flashchip.device_id;
-  id = ((id & 0xff) << 16) | ((id >> 16) & 0xff) | (id & 0xff00);
-  return id;
-}
+  uint32_t spi_clock = REG_READ(SPI_CLOCK_REG(0));
+  if (spi_clock & BIT(31)) {
+    // spi_clk is equal to system clock
+    return getApbFrequency();
+  }
+  // SPI_CLKCNT_N : R/W ;bitpos:[17:12] ;default: 6'h3 ;
+  // description: In the master mode it is the divider of spi_clk.
+  // So spi_clk frequencyis system/(spi_clkdiv_pre+1)/(spi_clkcnt_N+1)
 
-uint32_t ESP_getFlashChipRealSize(void)
-{
-  uint32_t id = (ESP_getFlashChipId() >> 16) & 0xFF;
-  return 2 << (id - 1);
+  uint32_t spi_clkdiv_pre = (spi_clock >> 18) & 0x1FFF;
+  uint32_t spi_clkcnt_n   = (spi_clock >> 12) & 0x3F;
+  return (getApbFrequency() / (spi_clkdiv_pre + 1)) / (spi_clkcnt_n + 1);
 }
 
 String GetDeviceHardware(void) {
@@ -281,6 +296,7 @@ void setup() {
     Serial.print("ESP32 XTAL FREQ: "); Serial.print(getXtalFrequencyMhz()); Serial.println(" MHz");
     Serial.print("ESP32 APB FREQ: "); Serial.print(getApbFrequency() / 1000000.0, 1); Serial.println(" MHz");
     Serial.print("ESP32 FLASH CHIP ID: "); Serial.println(ESP_getFlashChipId());
+    Serial.print("ESP32 FLASH CHIP FREQ: "); Serial.print(ESP_getFlashChipSpeed() / 1000000.0, 1); Serial.println(" MHz");
     Serial.print("ESP32 FLASH REAL SIZE: "); Serial.print(ESP_getFlashChipRealSize() / (1024.0 * 1024), 2); Serial.println(" MB");
     Serial.print("ESP32 FLASH SIZE (MAGIC BYTE): "); Serial.print(ESP.getFlashChipSize() / (1024.0 * 1024), 2); Serial.println(" MB");
     Serial.print("ESP32 FLASH REAL MODE: "); Serial.println(ESP_getFlashChipMode());
