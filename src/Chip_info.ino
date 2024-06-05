@@ -1,24 +1,71 @@
-#include <Arduino.h>
-#include "soc/spi_reg.h"
+#include "Arduino.h"
 #include <soc/efuse_reg.h>
 
-#if CONFIG_IDF_TARGET_ESP32
-  #include "esp32/rom/spi_flash.h"
+#include "Esp.h"
+#include "esp_sleep.h"
+#include <memory>
+#include <soc/soc.h>
+#include <esp_partition.h>
+
+extern "C" {
+#include "esp_ota_ops.h"
+#include "esp_image_format.h"
+}
+
+#include "soc/spi_reg.h"
+#include "esp_system.h"
+#include "esp_chip_info.h"
+#include "esp_mac.h"
+#include "esp_flash.h"
+
+#ifdef ESP_IDF_VERSION_MAJOR  // IDF 4+
+#if CONFIG_IDF_TARGET_ESP32   // ESP32/PICO-D4
+#include "esp32/rom/spi_flash.h"
+#include "soc/efuse_reg.h"
+#elif CONFIG_IDF_TARGET_ESP32S2
+#include "esp32s2/rom/spi_flash.h"
+#include "soc/efuse_reg.h"
+#elif CONFIG_IDF_TARGET_ESP32S3
+#include "esp32s3/rom/spi_flash.h"
+#elif CONFIG_IDF_TARGET_ESP32C2
+#include "esp32c2/rom/spi_flash.h"
+#elif CONFIG_IDF_TARGET_ESP32C3
+#include "esp32c3/rom/spi_flash.h"
+#elif CONFIG_IDF_TARGET_ESP32C6
+#include "esp32c6/rom/spi_flash.h"
+#elif CONFIG_IDF_TARGET_ESP32H2
+#include "esp32h2/rom/spi_flash.h"
+#else
+#error Target CONFIG_IDF_TARGET is not supported
+#endif
+#else  // ESP32 Before IDF 4.0
+#include "rom/spi_flash.h"
+#endif
+
+#if CONFIG_IDF_TARGET_ESP32      // ESP32/PICO-D4
+  #include "esp32/rom/rtc.h"
 #elif CONFIG_IDF_TARGET_ESP32S2  // ESP32-S2
-  #include "esp32s2/rom/spi_flash.h"
+  #include "esp32s2/rom/rtc.h"
 #elif CONFIG_IDF_TARGET_ESP32S3  // ESP32-S3
-  #include "esp32s3/rom/spi_flash.h"
+  #include "esp32s3/rom/rtc.h"
+#elif CONFIG_IDF_TARGET_ESP32C2  // ESP32-C2
+  #include "esp32c2/rom/rtc.h"
 #elif CONFIG_IDF_TARGET_ESP32C3  // ESP32-C3
-  #include "esp32c3/rom/spi_flash.h"
+  #include "esp32c3/rom/rtc.h"
+#elif CONFIG_IDF_TARGET_ESP32C6  // ESP32-C6
+  #include "esp32c6/rom/rtc.h"
+#elif CONFIG_IDF_TARGET_ESP32H2  // ESP32-H2
+  #include "esp32h2/rom/rtc.h"
+#else
+  #error Target CONFIG_IDF_TARGET is not supported
 #endif
 
 #if CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C3
-  #ifndef REG_SPI_BASE
+  #undef REG_SPI_BASE
   #define REG_SPI_BASE(i)     (DR_REG_SPI1_BASE + (((i)>1) ? (((i)* 0x1000) + 0x20000) : (((~(i)) & 1)* 0x1000 )))
-  #endif // REG_SPI_BASE
 #endif // TARGET
 
-uint32_t ESP_getFlashChipId(void)
+uint32_t ESP_get_FlashChipId(void)
 {
   uint32_t id = g_rom_flashchip.device_id;
   id = ((id & 0xff) << 16) | ((id >> 16) & 0xff) | (id & 0xff00);
@@ -27,7 +74,7 @@ uint32_t ESP_getFlashChipId(void)
 
 uint32_t ESP_getFlashChipRealSize(void)
 {
-  uint32_t id = (ESP_getFlashChipId() >> 16) & 0xFF;
+  uint32_t id = (ESP_get_FlashChipId() >> 16) & 0xFF;
   return 2 << (id - 1);
 }
 
@@ -293,10 +340,10 @@ void setup() {
     Serial.print("ESP32 CPU FREQ: "); Serial.print(getCpuFrequencyMhz()); Serial.println(" MHz");
     Serial.print("ESP32 XTAL FREQ: "); Serial.print(getXtalFrequencyMhz()); Serial.println(" MHz");
     Serial.print("ESP32 APB FREQ: "); Serial.print(getApbFrequency() / 1000000.0, 1); Serial.println(" MHz");
-    Serial.print("ESP32 FLASH CHIP ID: "); Serial.println(ESP_getFlashChipId());
+    Serial.print("ESP32 FLASH CHIP ID: "); Serial.println(ESP_get_FlashChipId());
     Serial.print("ESP32 FLASH CHIP FREQ: "); Serial.print(ESP_getFlashChipSpeed() / 1000000.0, 1); Serial.println(" MHz");
     Serial.print("ESP32 FLASH REAL SIZE: "); Serial.print(ESP_getFlashChipRealSize() / (1024.0 * 1024), 2); Serial.println(" MB");
-    Serial.print("ESP32 FLASH SIZE (MAGIC BYTE): "); Serial.print(ESP.getFlashChipSize() / (1024.0 * 1024), 2); Serial.println(" MB");
+    //Serial.print("ESP32 FLASH SIZE (MAGIC BYTE): "); Serial.print(ESP.getFlashChipSize() / (1024.0 * 1024), 2); Serial.println(" MB");
     Serial.print("ESP32 FLASH REAL MODE: "); Serial.println(ESP_getFlashChipMode());
     Serial.print("ESP32 FLASH MODE (MAGIC BYTE): "); Serial.print(ESP.getFlashChipMode()); Serial.println(", 0=QIO, 1=QOUT, 2=DIO, 3=DOUT");
     Serial.print("ESP32 RAM SIZE: "); Serial.print(ESP.getHeapSize() / 1024.0, 2); Serial.println(" KB");
